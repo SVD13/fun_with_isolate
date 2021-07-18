@@ -46,7 +46,7 @@ class Calculator {
     try {
       final List<dynamic> result = decoder.convert(_data) as List<dynamic>;
       final int n = result.length;
-      onResultListener(_data);
+      onResultListener(n.toString());
     } catch (e, stack) {
       print('Invalid JSON file: $e');
       print(stack);
@@ -120,6 +120,7 @@ class CalculationManager {
         _isolate = null;
         _completed = 0.0;
         _total = 1.0;
+        // _receivePort.close();
       }
     }
   }
@@ -266,6 +267,7 @@ class IsolateExampleState extends State<StatefulWidget>
       final File file = File('${dir.path}/heh.json');
       file.writeAsString(result);
     }); */
+    _updateState(result, 0.0);
   }
 
   void _handleButtonPressed() {
