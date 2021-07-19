@@ -11,15 +11,12 @@ class PdfGeneratorMessage {
   PdfGeneratorMessage({
     required this.directoryPath,
     required this.documentName,
-    required this.pages,
     required this.sendPort,
   });
 
   final String directoryPath;
 
   final String documentName;
-
-  final List<pw.Page> pages;
 
   final SendPort sendPort;
 }
@@ -28,15 +25,12 @@ class PdfGenerator {
   PdfGenerator({
     required this.directoryPath,
     required this.documentName,
-    required this.pages,
     required this.onPdfSaved,
   });
 
   final String directoryPath;
 
   final String documentName;
-
-  final List<pw.Page> pages;
 
   final OnPdfSaved onPdfSaved;
 
@@ -53,9 +47,72 @@ class PdfGenerator {
       'Total'
     ];
 
-    for (final page in pages) {
-      document.addPage(page);
-    }
+    document.addPage(
+      pw.MultiPage(
+        maxPages: 10000,
+        build: (context) => [
+          pw.Table.fromTextArray(
+            border: null,
+            cellAlignment: pw.Alignment.centerLeft,
+            headerDecoration: pw.BoxDecoration(
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+              color: PdfColor.fromInt(0xff00ff00),
+            ),
+            headerHeight: 25,
+            cellHeight: 40,
+            cellAlignments: {
+              0: pw.Alignment.centerLeft,
+              1: pw.Alignment.centerLeft,
+              2: pw.Alignment.centerLeft,
+              3: pw.Alignment.centerLeft,
+              4: pw.Alignment.centerLeft,
+            },
+            headerStyle: pw.TextStyle(
+              color: PdfColor.fromInt(0xffffffff),
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+            ),
+            columnWidths: {
+              0: const pw.IntrinsicColumnWidth(flex: 1),
+              1: const pw.IntrinsicColumnWidth(flex: 2),
+              2: const pw.IntrinsicColumnWidth(flex: 5),
+              3: const pw.IntrinsicColumnWidth(flex: 4),
+              4: const pw.IntrinsicColumnWidth(flex: 4),
+            },
+            cellStyle: const pw.TextStyle(
+              color: PdfColor.fromInt(0xff000000),
+              fontSize: 10,
+            ),
+            rowDecoration: pw.BoxDecoration(
+              border: pw.Border(
+                bottom: pw.BorderSide(
+                  color: PdfColor.fromInt(0xff000000),
+                  width: .5,
+                ),
+              ),
+            ),
+            headers: List<String>.generate(
+              ['SKU#', 'Item Description', 'Price', 'Quantity', 'Total'].length,
+              (col) => [
+                'SKU#',
+                'Item Description',
+                'Price',
+                'Quantity',
+                'Total'
+              ][col],
+            ),
+            data: List<List<String>>.generate(
+              1000,
+              (row) => List<String>.generate(
+                ['SKU#', 'Item Description', 'Price', 'Quantity', 'Total']
+                    .length,
+                (col) => '$row-$col',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
 
     final filePath = '$directoryPath/$documentName.pdf';
     final file = File(filePath);
@@ -71,7 +128,6 @@ class PdfGeneratorManager {
   PdfGeneratorManager({
     required this.directoryPath,
     required this.documentName,
-    required this.pages,
     required this.onPdfSaved,
   }) : _receivePort = ReceivePort() {
     _receivePort.listen(_handleMessage);
@@ -86,8 +142,6 @@ class PdfGeneratorManager {
   final String directoryPath;
 
   final String documentName;
-
-  final List<pw.Page> pages;
 
   final OnPdfSaved onPdfSaved;
 
@@ -116,7 +170,6 @@ class PdfGeneratorManager {
     final PdfGeneratorMessage message = PdfGeneratorMessage(
       directoryPath: directoryPath,
       documentName: documentName,
-      pages: pages,
       sendPort: _receivePort.sendPort,
     );
 
@@ -145,7 +198,6 @@ class PdfGeneratorManager {
     final PdfGenerator pdfGenerator = PdfGenerator(
       directoryPath: message.directoryPath,
       documentName: message.documentName,
-      pages: message.pages,
       onPdfSaved: sender.send,
     );
     pdfGenerator.run();

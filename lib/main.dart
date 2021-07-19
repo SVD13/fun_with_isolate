@@ -222,71 +222,9 @@ class IsolateExampleState extends State<StatefulWidget>
     vsync: this,
   )..repeat();
 
-  static final pages = [
-    pw.MultiPage(
-      maxPages: 10000,
-      build: (context) => [
-        pw.Table.fromTextArray(
-          border: null,
-          cellAlignment: pw.Alignment.centerLeft,
-          headerDecoration: pw.BoxDecoration(
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
-            color: PdfColor.fromInt(0xff00ff00),
-          ),
-          headerHeight: 25,
-          cellHeight: 40,
-          cellAlignments: {
-            0: pw.Alignment.centerLeft,
-            1: pw.Alignment.centerLeft,
-            2: pw.Alignment.centerLeft,
-            3: pw.Alignment.centerLeft,
-            4: pw.Alignment.centerLeft,
-          },
-          headerStyle: pw.TextStyle(
-            color: PdfColor.fromInt(0xffffffff),
-            fontSize: 10,
-            fontWeight: pw.FontWeight.bold,
-          ),
-          columnWidths: {
-            0: const pw.IntrinsicColumnWidth(flex: 1),
-            1: const pw.IntrinsicColumnWidth(flex: 2),
-            2: const pw.IntrinsicColumnWidth(flex: 5),
-            3: const pw.IntrinsicColumnWidth(flex: 4),
-            4: const pw.IntrinsicColumnWidth(flex: 4),
-          },
-          cellStyle: const pw.TextStyle(
-            color: PdfColor.fromInt(0xff000000),
-            fontSize: 10,
-          ),
-          rowDecoration: pw.BoxDecoration(
-            border: pw.Border(
-              bottom: pw.BorderSide(
-                color: PdfColor.fromInt(0xff000000),
-                width: .5,
-              ),
-            ),
-          ),
-          headers: List<String>.generate(
-            ['SKU#', 'Item Description', 'Price', 'Quantity', 'Total'].length,
-            (col) =>
-                ['SKU#', 'Item Description', 'Price', 'Quantity', 'Total'][col],
-          ),
-          data: List<List<String>>.generate(
-            2000,
-            (row) => List<String>.generate(
-              ['SKU#', 'Item Description', 'Price', 'Quantity', 'Total'].length,
-              (col) => '$row-$col',
-            ),
-          ),
-        ),
-      ],
-    ),
-  ];
-
   late final PdfGeneratorManager pdfGeneratorManager = PdfGeneratorManager(
     directoryPath: '/data/user/0/com.example.isolate_test/cache',
     documentName: '123',
-    pages: [],
     onPdfSaved: _handleResult,
   );
 
@@ -329,6 +267,16 @@ class IsolateExampleState extends State<StatefulWidget>
       file.writeAsString(result);
     }); */
     _updateState(result);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          return PdfView(
+            filePath: result,
+          );
+        },
+      ),
+    );
   }
 
   void _handleButtonPressed() {
@@ -365,13 +313,36 @@ void main() {
   ));
 }
 
-/* class PdfView extends StatelessWidget {
-  const PdfView({Key? key}) : super(key: key);
+class PdfView extends StatelessWidget {
+  const PdfView({
+    Key? key,
+    required this.filePath,
+  }) : super(key: key);
+
+  final String filePath;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: PdfViewer.openFutureFile(() => null),
+      body: PdfViewer.openFile(
+        filePath,
+        params: PdfViewerParams(
+          onViewerControllerInitialized: (controller) {
+            print(controller?.ready?.pageCount);
+          },
+          padding: 20,
+          pageDecoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.background,
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 10,
+                offset: Offset(0.0, 3.0),
+              )
+            ],
+          ),
+        ),
+      ),
     );
   }
-} */
+}
