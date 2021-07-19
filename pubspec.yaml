@@ -25,6 +25,8 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.2
   path_provider: ^2.0.2
+  printing: ^5.4.3
+  pdf_render: ^1.0.11
 
 dev_dependencies:
   flutter_test:

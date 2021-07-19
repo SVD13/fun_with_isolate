@@ -6,6 +6,7 @@ import 'dart:isolate';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pdf_render/pdf_render_widgets.dart';
 
 typedef OnProgressListener = void Function(double completed, double total);
 typedef OnResultListener = void Function(String result);
@@ -15,11 +16,11 @@ typedef OnResultListener = void Function(String result);
 // The choice of JSON parsing here is meant as an example that might surface
 // in real-world applications.
 class Calculator {
-  Calculator(
-      {required this.onProgressListener,
-      required this.onResultListener,
-      String? data})
-      :
+  Calculator({
+    required this.onProgressListener,
+    required this.onResultListener,
+    String? data,
+  }) :
         // In order to keep the example files smaller, we "cheat" a little and
         // replicate our small json string into a 10,000-element array.
         _data = _replicateJson(data, 100000);
@@ -38,14 +39,16 @@ class Calculator {
     int i = 0;
     final JsonDecoder decoder = JsonDecoder(
       (dynamic key, dynamic value) {
-        if (key is int && i++ % _NOTIFY_INTERVAL == 0)
+        if (key is int && i++ % _NOTIFY_INTERVAL == 0) {
           onProgressListener(i.toDouble(), _NUM_ITEMS.toDouble());
+        }
         return value;
       },
     );
     try {
       final List<dynamic> result = decoder.convert(_data) as List<dynamic>;
       final int n = result.length;
+
       onResultListener(n.toString());
     } catch (e, stack) {
       print('Invalid JSON file: $e');
@@ -82,9 +85,10 @@ class CalculationMessage {
 // This class manages these ports and maintains state related to the
 // progress of the background computation.
 class CalculationManager {
-  CalculationManager(
-      {required this.onProgressListener, required this.onResultListener})
-      : _receivePort = ReceivePort() {
+  CalculationManager({
+    required this.onProgressListener,
+    required this.onResultListener,
+  }) : _receivePort = ReceivePort() {
     _receivePort.listen(_handleMessage);
   }
 
@@ -306,3 +310,14 @@ void main() {
     home: IsolateExampleWidget(),
   ));
 }
+
+/* class PdfView extends StatelessWidget {
+  const PdfView({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: PdfViewer.openFutureFile(() => null),
+    );
+  }
+} */
