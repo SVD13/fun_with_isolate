@@ -5,8 +5,12 @@ import 'dart:isolate';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:isolate_test/pdf_generator.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf_render/pdf_render_widgets.dart';
+
+import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
 
 typedef OnProgressListener = void Function(double completed, double total);
 typedef OnResultListener = void Function(String result);
@@ -213,14 +217,77 @@ class IsolateExampleState extends State<StatefulWidget>
   String _status = 'Idle';
   String _label = 'Start';
   String _result = ' ';
-  double _progress = 0.0;
   late final AnimationController _animation = AnimationController(
     duration: const Duration(milliseconds: 3600),
     vsync: this,
   )..repeat();
-  late final CalculationManager _calculationManager = CalculationManager(
-    onProgressListener: _handleProgressUpdate,
-    onResultListener: _handleResult,
+
+  static final pages = [
+    pw.MultiPage(
+      maxPages: 10000,
+      build: (context) => [
+        pw.Table.fromTextArray(
+          border: null,
+          cellAlignment: pw.Alignment.centerLeft,
+          headerDecoration: pw.BoxDecoration(
+            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+            color: PdfColor.fromInt(0xff00ff00),
+          ),
+          headerHeight: 25,
+          cellHeight: 40,
+          cellAlignments: {
+            0: pw.Alignment.centerLeft,
+            1: pw.Alignment.centerLeft,
+            2: pw.Alignment.centerLeft,
+            3: pw.Alignment.centerLeft,
+            4: pw.Alignment.centerLeft,
+          },
+          headerStyle: pw.TextStyle(
+            color: PdfColor.fromInt(0xffffffff),
+            fontSize: 10,
+            fontWeight: pw.FontWeight.bold,
+          ),
+          columnWidths: {
+            0: const pw.IntrinsicColumnWidth(flex: 1),
+            1: const pw.IntrinsicColumnWidth(flex: 2),
+            2: const pw.IntrinsicColumnWidth(flex: 5),
+            3: const pw.IntrinsicColumnWidth(flex: 4),
+            4: const pw.IntrinsicColumnWidth(flex: 4),
+          },
+          cellStyle: const pw.TextStyle(
+            color: PdfColor.fromInt(0xff000000),
+            fontSize: 10,
+          ),
+          rowDecoration: pw.BoxDecoration(
+            border: pw.Border(
+              bottom: pw.BorderSide(
+                color: PdfColor.fromInt(0xff000000),
+                width: .5,
+              ),
+            ),
+          ),
+          headers: List<String>.generate(
+            ['SKU#', 'Item Description', 'Price', 'Quantity', 'Total'].length,
+            (col) =>
+                ['SKU#', 'Item Description', 'Price', 'Quantity', 'Total'][col],
+          ),
+          data: List<List<String>>.generate(
+            2000,
+            (row) => List<String>.generate(
+              ['SKU#', 'Item Description', 'Price', 'Quantity', 'Total'].length,
+              (col) => '$row-$col',
+            ),
+          ),
+        ),
+      ],
+    ),
+  ];
+
+  late final PdfGeneratorManager pdfGeneratorManager = PdfGeneratorManager(
+    directoryPath: '/data/user/0/com.example.isolate_test/cache',
+    documentName: '123',
+    pages: [],
+    onPdfSaved: _handleResult,
   );
 
   @override
@@ -243,12 +310,6 @@ class IsolateExampleState extends State<StatefulWidget>
               color: const Color(0xFF882222),
             ),
           ),
-          Opacity(
-            opacity: _calculationManager.isRunning ? 1.0 : 0.0,
-            child: CircularProgressIndicator(
-              value: _progress,
-            ),
-          ),
           Text(_status),
           Center(
             child: ElevatedButton(
@@ -262,44 +323,37 @@ class IsolateExampleState extends State<StatefulWidget>
     );
   }
 
-  void _handleProgressUpdate(double completed, double total) {
-    _updateState(' ', completed / total);
-  }
-
   void _handleResult(String result) {
     /* getTemporaryDirectory().then((dir) {
       final File file = File('${dir.path}/heh.json');
       file.writeAsString(result);
     }); */
-    _updateState(result, 0.0);
+    _updateState(result);
   }
 
   void _handleButtonPressed() {
-    if (_calculationManager.isRunning)
-      _calculationManager.stop();
+    if (pdfGeneratorManager.isRunning)
+      pdfGeneratorManager.stop();
     else
-      _calculationManager.start();
-    _updateState(' ', 0.0);
+      pdfGeneratorManager.start();
+    _updateState(' ');
   }
 
-  String _getStatus(CalculationState state) {
+  String _getStatus(PdfGeneratorState state) {
     switch (state) {
-      case CalculationState.loading:
-        return 'Loading...';
-      case CalculationState.calculating:
+      case PdfGeneratorState.generating:
         return 'In Progress';
-      case CalculationState.idle:
+      case PdfGeneratorState.idle:
       default:
         return 'Idle';
     }
   }
 
-  void _updateState(String result, double progress) {
+  void _updateState(String result) {
     setState(() {
       _result = result;
-      _progress = progress;
-      _label = _calculationManager.isRunning ? 'Stop' : 'Start';
-      _status = _getStatus(_calculationManager.state);
+      _label = pdfGeneratorManager.isRunning ? 'Stop' : 'Start';
+      _status = _getStatus(pdfGeneratorManager.state);
     });
   }
 }
