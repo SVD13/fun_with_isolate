@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:isolate_test/pdf_generator.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pdf_render/pdf_render_widgets.dart';
 
 typedef OnProgressListener = void Function(double completed, double total);
@@ -278,19 +279,20 @@ class IsolateExampleState extends State<StatefulWidget>
   void _handleButtonPressed() {
     if (pdfGeneratorManager.isRunning) {
       pdfGeneratorManager.stop();
+      _updateState(' ');
     } else {
       rootBundle.load('assets/tomato.png').then(
-        (data) {
+        (data) async {
+          final path = (await getTemporaryDirectory()).path;
           pdfGeneratorManager.start(
             documentGenerator: generatePDF,
-            directoryPath: '/data/user/0/com.example.isolate_test/cache',
+            directoryPath: path,
             images: {'tomato': data.buffer.asUint8List()},
           );
+          _updateState(' ');
         },
       );
     }
-
-    _updateState(' ');
   }
 
   String _getStatus(PdfGeneratorState state) {

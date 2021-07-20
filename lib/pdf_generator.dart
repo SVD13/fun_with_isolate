@@ -9,7 +9,10 @@ import 'package:pdf/widgets.dart' as pw;
 
 typedef OnPdfSaved = void Function(String filePath);
 
-typedef DocumentGenerator = FutureOr<String> Function(Map<String, Uint8List>);
+typedef DocumentGenerator = FutureOr<String> Function(
+  String,
+  Map<String, Uint8List>,
+);
 
 class _PdfGeneratorMessage {
   _PdfGeneratorMessage({
@@ -108,13 +111,19 @@ class PdfGenerator {
   static Future<void> _run(_PdfGeneratorMessage message) async {
     final SendPort sender = message.sendPort;
 
-    final path = await message.documentGenerator(message.images);
+    final path = await message.documentGenerator(
+      message.directoryPath,
+      message.images,
+    );
 
     sender.send(path);
   }
 }
 
-Future<String> generatePDF(Map<String, Uint8List> images) async {
+Future<String> generatePDF(
+  String directoryPath,
+  Map<String, Uint8List> images,
+) async {
   log('_generatePDFInIsolate: start');
   final document = pw.Document(
     version: PdfVersion.pdf_1_5,
@@ -195,7 +204,7 @@ Future<String> generatePDF(Map<String, Uint8List> images) async {
   final bytes = await document.save();
   log('_generatePDFInIsolate: bytes generated');
 
-  final filePath = '/data/user/0/com.example.isolate_test/cache/12345.pdf';
+  final filePath = '$directoryPath/12345.pdf';
   final file = File(filePath);
 
   file.writeAsBytesSync(bytes);
