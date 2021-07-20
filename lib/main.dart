@@ -1,16 +1,12 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:io';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:isolate_test/pdf_generator.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pdf_render/pdf_render_widgets.dart';
-
-import 'package:pdf/widgets.dart' as pw;
-import 'package:pdf/pdf.dart';
 
 typedef OnProgressListener = void Function(double completed, double total);
 typedef OnResultListener = void Function(String result);
@@ -222,9 +218,7 @@ class IsolateExampleState extends State<StatefulWidget>
     vsync: this,
   )..repeat();
 
-  late final PdfGeneratorManager pdfGeneratorManager = PdfGeneratorManager(
-    directoryPath: '/data/user/0/com.example.isolate_test/cache',
-    documentName: '123',
+  late final PdfGenerator pdfGeneratorManager = PdfGenerator(
     onPdfSaved: _handleResult,
   );
 
@@ -262,6 +256,8 @@ class IsolateExampleState extends State<StatefulWidget>
   }
 
   void _handleResult(String result) {
+    log(result);
+
     /* getTemporaryDirectory().then((dir) {
       final File file = File('${dir.path}/heh.json');
       file.writeAsString(result);
@@ -280,10 +276,20 @@ class IsolateExampleState extends State<StatefulWidget>
   }
 
   void _handleButtonPressed() {
-    if (pdfGeneratorManager.isRunning)
+    if (pdfGeneratorManager.isRunning) {
       pdfGeneratorManager.stop();
-    else
-      pdfGeneratorManager.start();
+    } else {
+      rootBundle.load('assets/tomato.png').then(
+        (data) {
+          pdfGeneratorManager.start(
+            documentGenerator: generatePDF,
+            directoryPath: '/data/user/0/com.example.isolate_test/cache',
+            images: {'tomato': data.buffer.asUint8List()},
+          );
+        },
+      );
+    }
+
     _updateState(' ');
   }
 
@@ -308,12 +314,12 @@ class IsolateExampleState extends State<StatefulWidget>
 
 void main() {
   runApp(const MaterialApp(
-    showPerformanceOverlay: true,
+    // showPerformanceOverlay: true,
     home: IsolateExampleWidget(),
   ));
 }
 
-class PdfView extends StatelessWidget {
+class PdfView extends StatefulWidget {
   const PdfView({
     Key? key,
     required this.filePath,
@@ -322,14 +328,27 @@ class PdfView extends StatelessWidget {
   final String filePath;
 
   @override
+  _PdfViewState createState() => _PdfViewState();
+}
+
+class _PdfViewState extends State<PdfView> {
+  @override
+  void initState() {
+    super.initState();
+    // generatePDF();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: PdfViewer.openFile(
-        filePath,
+        widget.filePath,
         params: PdfViewerParams(
           onViewerControllerInitialized: (controller) {
             print(controller?.ready?.pageCount);
           },
+          maxScale: 3.0,
+          minScale: 1.0,
           padding: 20,
           pageDecoration: BoxDecoration(
             color: Theme.of(context).colorScheme.background,
