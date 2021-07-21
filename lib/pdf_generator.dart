@@ -1,27 +1,27 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:isolate';
-import 'dart:typed_data';
 
 typedef OnPdfSaved = void Function(String filePath);
 
-typedef DocumentGenerator = FutureOr<String> Function(
-  String,
-  Map<String, Uint8List>,
+typedef DocumentGenerator = FutureOr<String?> Function(
+  String directoryPath,
+  dynamic data,
 );
 
 class _PdfGeneratorMessage {
   _PdfGeneratorMessage({
     required this.directoryPath,
     required this.documentGenerator,
-    required this.images,
     required this.sendPort,
+    this.data,
   });
 
   final String directoryPath;
 
   final DocumentGenerator documentGenerator;
 
-  final Map<String, Uint8List> images;
+  final dynamic data;
 
   final SendPort sendPort;
 }
@@ -32,8 +32,10 @@ class PdfGenerator {
   PdfGenerator({
     OnPdfSaved? onPdfSaved,
   })  : _onPdfSaved = onPdfSaved,
-        _receivePort = ReceivePort() {
-    _receivePort.listen(_handleMessage);
+        _resultPort = ReceivePort(),
+        _errorPort = ReceivePort() {
+    _resultPort.listen(_handleResult);
+    _errorPort.listen(_handleError);
   }
 
   OnPdfSaved? _onPdfSaved;
@@ -47,14 +49,14 @@ class PdfGenerator {
   void start({
     required DocumentGenerator documentGenerator,
     required String directoryPath,
-    Map<String, Uint8List> images = const {},
+    dynamic data,
   }) {
     if (!isRunning) {
       _state = PdfGeneratorState.generating;
       _runGenerator(
         documentGenerator: documentGenerator,
         directoryPath: directoryPath,
-        images: images,
+        data: data,
       );
     }
   }
@@ -72,29 +74,33 @@ class PdfGenerator {
   void dispose() {
     _onPdfSaved = null;
     _state = PdfGeneratorState.idle;
+    _resultPort.close();
+    _errorPort.close();
     _isolate?.kill(priority: Isolate.immediate);
     _isolate = null;
-    _receivePort.close();
   }
 
-  final ReceivePort _receivePort;
+  final ReceivePort _resultPort;
+  final ReceivePort _errorPort;
+
   Isolate? _isolate;
 
   void _runGenerator({
     required DocumentGenerator documentGenerator,
     required String directoryPath,
-    required Map<String, Uint8List> images,
+    dynamic data,
   }) {
     final _PdfGeneratorMessage message = _PdfGeneratorMessage(
       directoryPath: directoryPath,
       documentGenerator: documentGenerator,
-      sendPort: _receivePort.sendPort,
-      images: images,
+      sendPort: _resultPort.sendPort,
+      data: data,
     );
 
     Isolate.spawn<_PdfGeneratorMessage>(
       _run,
       message,
+      onError: _errorPort.sendPort,
     ).then((Isolate isolate) {
       if (!isRunning) {
         isolate.kill(priority: Isolate.immediate);
@@ -104,11 +110,15 @@ class PdfGenerator {
     });
   }
 
-  void _handleMessage(dynamic message) {
-    if (message is String) {
+  void _handleResult(dynamic result) {
+    if (result is String) {
       _state = PdfGeneratorState.idle;
-      _onPdfSaved?.call(message);
+      _onPdfSaved?.call(result);
     }
+  }
+
+  void _handleError(dynamic error) {
+    log('$error');
   }
 
   static Future<void> _run(_PdfGeneratorMessage message) async {
@@ -116,7 +126,7 @@ class PdfGenerator {
 
     final path = await message.documentGenerator(
       message.directoryPath,
-      message.images,
+      message.data,
     );
 
     sender.send(path);

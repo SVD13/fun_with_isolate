@@ -26,7 +26,7 @@ class RootState extends State<Root> with SingleTickerProviderStateMixin {
   String _label = 'Start';
   String _result = ' ';
   late final AnimationController _animation = AnimationController(
-    duration: const Duration(milliseconds: 3600),
+    duration: const Duration(milliseconds: 10000),
     vsync: this,
   )..repeat();
 
@@ -94,8 +94,8 @@ class RootState extends State<Root> with SingleTickerProviderStateMixin {
           final path = (await getTemporaryDirectory()).path;
           pdfGeneratorManager.start(
             documentGenerator: generatePDF,
-            directoryPath: path,
-            images: {'tomato': data.buffer.asUint8List()},
+            directoryPath: 'path',
+            data: {'tomato': data.buffer.asUint8List()},
           );
           _updateState(' ');
         },

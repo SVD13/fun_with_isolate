@@ -5,10 +5,13 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-Future<String> generatePDF(
-  String directoryPath,
-  Map<String, Uint8List> images,
-) async {
+Future<String?> generatePDF(
+    String directoryPath,
+    // Map<String, Uint8List> images,
+    dynamic data) async {
+  final images = data as Map<String, Uint8List>?;
+  if (images == null) return null;
+
   log('generatePDF: start');
   final document = pw.Document(
     version: PdfVersion.pdf_1_5,
@@ -79,7 +82,7 @@ Future<String> generatePDF(
             (col) => tableHeaders[col],
           ),
           data: List<List<String>>.generate(
-            100,
+            1000,
             (row) => List<String>.generate(
               tableHeaders.length,
               (col) => '$row-$col',
