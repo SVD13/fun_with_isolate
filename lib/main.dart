@@ -32,6 +32,9 @@ class RootState extends State<Root> with SingleTickerProviderStateMixin {
 
   late final PdfGenerator pdfGeneratorManager = PdfGenerator(
     onPdfSaved: _handleResult,
+    onPdfGeneratorError: (error) {
+      _updateState(error.toString());
+    },
   );
 
   @override
@@ -94,7 +97,7 @@ class RootState extends State<Root> with SingleTickerProviderStateMixin {
           final path = (await getTemporaryDirectory()).path;
           pdfGeneratorManager.start(
             documentGenerator: generatePDF,
-            directoryPath: 'path',
+            directoryPath: path,
             data: {'tomato': data.buffer.asUint8List()},
           );
           _updateState(' ');

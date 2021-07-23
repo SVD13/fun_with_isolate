@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:developer';
 import 'dart:isolate';
 
 typedef OnPdfSaved = void Function(String filePath);
+typedef OnPdfGeneratorError = void Function(dynamic error);
 
-typedef DocumentGenerator = FutureOr<String?> Function(
+typedef DocumentGenerator = FutureOr<String> Function(
   String directoryPath,
   dynamic data,
 );
@@ -31,7 +31,9 @@ enum PdfGeneratorState { idle, generating }
 class PdfGenerator {
   PdfGenerator({
     OnPdfSaved? onPdfSaved,
+    OnPdfGeneratorError? onPdfGeneratorError,
   })  : _onPdfSaved = onPdfSaved,
+        _onPdfGeneratorError = onPdfGeneratorError,
         _resultPort = ReceivePort(),
         _errorPort = ReceivePort() {
     _resultPort.listen(_handleResult);
@@ -39,6 +41,8 @@ class PdfGenerator {
   }
 
   OnPdfSaved? _onPdfSaved;
+
+  OnPdfGeneratorError? _onPdfGeneratorError;
 
   PdfGeneratorState _state = PdfGeneratorState.idle;
 
@@ -118,7 +122,8 @@ class PdfGenerator {
   }
 
   void _handleError(dynamic error) {
-    log('$error');
+    _state = PdfGeneratorState.idle;
+    _onPdfGeneratorError?.call(error);
   }
 
   static Future<void> _run(_PdfGeneratorMessage message) async {

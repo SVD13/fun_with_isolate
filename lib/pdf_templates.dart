@@ -5,12 +5,11 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-Future<String?> generatePDF(
+Future<String> generatePDF(
     String directoryPath,
     // Map<String, Uint8List> images,
     dynamic data) async {
-  final images = data as Map<String, Uint8List>?;
-  if (images == null) return null;
+  final images = data as Map<String, Uint8List>;
 
   log('generatePDF: start');
   final document = pw.Document(
