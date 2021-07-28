@@ -1,48 +1,58 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:isolate';
 
 typedef OnPdfSaved = void Function(String filePath);
 typedef OnPdfGeneratorError = void Function(dynamic error);
 
-typedef DocumentGenerator = FutureOr<String> Function(
+typedef DocumentGenerator<T> = FutureOr<String> Function(
   String directoryPath,
-  dynamic data,
+  T data,
 );
 
-class _PdfGeneratorMessage {
+class _PdfGeneratorMessage<T> {
   _PdfGeneratorMessage({
     required this.directoryPath,
     required this.documentGenerator,
     required this.sendPort,
-    this.data,
+    required this.data,
   });
 
   final String directoryPath;
 
-  final DocumentGenerator documentGenerator;
+  final DocumentGenerator<T> documentGenerator;
 
-  final dynamic data;
+  final T data;
 
   final SendPort sendPort;
+
+  FutureOr<String> apply() => documentGenerator(directoryPath, data);
 }
 
 enum PdfGeneratorState { idle, generating }
 
 class PdfGenerator {
-  PdfGenerator({
+  /* PdfGenerator({
     OnPdfSaved? onPdfSaved,
     OnPdfGeneratorError? onPdfGeneratorError,
-  })  : _onPdfSaved = onPdfSaved,
-        _onPdfGeneratorError = onPdfGeneratorError,
-        _resultPort = ReceivePort(),
-        _errorPort = ReceivePort() {
-    _resultPort.listen(_handleResult);
+  });
+   : _onPdfSaved = onPdfSaved,
+        _onPdfGeneratorError =
+            onPdfGeneratorError ,
+         _resultPort = ReceivePort(),
+        _errorPort = ReceivePort(),
+        _onExitPort = ReceivePort() 
+  {
+     _resultPort.listen(_handleResult);
     _errorPort.listen(_handleError);
-  }
+    _exitPort.listen((message) {
+      log('$message');
+    }); 
+  }*/
 
-  OnPdfSaved? _onPdfSaved;
+  /* OnPdfSaved? _onPdfSaved;
 
-  OnPdfGeneratorError? _onPdfGeneratorError;
+  OnPdfGeneratorError? _onPdfGeneratorError; */
 
   PdfGeneratorState _state = PdfGeneratorState.idle;
 
@@ -50,22 +60,34 @@ class PdfGenerator {
 
   bool get isRunning => _state != PdfGeneratorState.idle;
 
-  void start({
-    required DocumentGenerator documentGenerator,
+  Future<String> run<T>({
+    required DocumentGenerator<T> documentGenerator,
     required String directoryPath,
-    dynamic data,
-  }) {
+    required T data,
+  }) async {
+    _state = PdfGeneratorState.generating;
+
     if (!isRunning) {
-      _state = PdfGeneratorState.generating;
-      _runGenerator(
+      return _run(
         documentGenerator: documentGenerator,
         directoryPath: directoryPath,
         data: data,
       );
     }
+
+    if (_isolate != null) {
+      _isolate!.kill(priority: Isolate.immediate);
+      _isolate = null;
+    }
+
+    return _run(
+      documentGenerator: documentGenerator,
+      directoryPath: directoryPath,
+      data: data,
+    );
   }
 
-  void stop() {
+  void cancel() {
     if (isRunning) {
       _state = PdfGeneratorState.idle;
       if (_isolate != null) {
@@ -76,45 +98,98 @@ class PdfGenerator {
   }
 
   void dispose() {
-    _onPdfSaved = null;
+    // _onPdfSaved = null;
+
     _state = PdfGeneratorState.idle;
-    _resultPort.close();
-    _errorPort.close();
+
+    _resultPort?.close();
+    _errorPort?.close();
+    _exitPort?.close();
+
+    _resultPort = null;
+    _errorPort = null;
+    _exitPort = null;
+
     _isolate?.kill(priority: Isolate.immediate);
     _isolate = null;
   }
 
-  final ReceivePort _resultPort;
-  final ReceivePort _errorPort;
+  ReceivePort? _resultPort;
+  ReceivePort? _errorPort;
+  ReceivePort? _exitPort;
 
   Isolate? _isolate;
 
-  void _runGenerator({
-    required DocumentGenerator documentGenerator,
+  Future<String> _run<T>({
+    required DocumentGenerator<T> documentGenerator,
     required String directoryPath,
-    dynamic data,
-  }) {
-    final _PdfGeneratorMessage message = _PdfGeneratorMessage(
-      directoryPath: directoryPath,
-      documentGenerator: documentGenerator,
-      sendPort: _resultPort.sendPort,
-      data: data,
+    required T data,
+  }) async {
+    log('_run');
+    _resultPort = ReceivePort();
+    _errorPort = ReceivePort();
+    _exitPort = ReceivePort();
+
+    _isolate = await Isolate.spawn<_PdfGeneratorMessage<T>>(
+      _spawn,
+      _PdfGeneratorMessage<T>(
+        directoryPath: directoryPath,
+        documentGenerator: documentGenerator,
+        sendPort: _resultPort!.sendPort,
+        data: data,
+      ),
+      onError: _errorPort!.sendPort,
+      onExit: _exitPort!.sendPort,
     );
 
-    Isolate.spawn<_PdfGeneratorMessage>(
-      _run,
-      message,
-      onError: _errorPort.sendPort,
-    ).then((Isolate isolate) {
-      if (!isRunning) {
-        isolate.kill(priority: Isolate.immediate);
+    if (!isRunning) {
+      _isolate?.kill(priority: Isolate.immediate);
+    }
+
+    final Completer<String> result = Completer<String>();
+
+    _resultPort!.listen((resultData) {
+      log('_resultPort message: $resultData');
+      assert(resultData == null || resultData is String);
+      if (!result.isCompleted) result.complete(resultData as String);
+    });
+
+    _errorPort!.listen((errorData) {
+      log('_errorPort message: $errorData');
+      result.completeError(errorData);
+      /* assert(errorData is List<dynamic>);
+      assert(errorData.length == 2);
+      final Exception exception = Exception(errorData[0]);
+      final StackTrace stack = StackTrace.fromString(errorData[1] as String);
+      if (result.isCompleted) {
+        Zone.current.handleUncaughtError(exception, stack);
       } else {
-        _isolate = isolate;
+        result.completeError(exception, stack);
+      } */
+    });
+
+    _exitPort!.listen((exitData) {
+      log('_exitPort message: $exitData');
+      if (!result.isCompleted) {
+        result.completeError(
+          Exception('Isolate exited without result or error.'),
+        );
       }
     });
+
+    await result.future;
+
+    _state = PdfGeneratorState.idle;
+    log('$_state');
+    _resultPort!.close();
+    _errorPort!.close();
+    _exitPort!.close();
+    _isolate!.kill();
+
+    return result.future;
   }
 
-  void _handleResult(dynamic result) {
+  /* void _handleResult(dynamic result) {
     if (result is String) {
       _state = PdfGeneratorState.idle;
       _onPdfSaved?.call(result);
@@ -124,15 +199,13 @@ class PdfGenerator {
   void _handleError(dynamic error) {
     _state = PdfGeneratorState.idle;
     _onPdfGeneratorError?.call(error);
-  }
+  } */
 
-  static Future<void> _run(_PdfGeneratorMessage message) async {
+  static Future<void> _spawn<T>(_PdfGeneratorMessage<T> message) async {
+    log('_spawn');
+
     final SendPort sender = message.sendPort;
-
-    final path = await message.documentGenerator(
-      message.directoryPath,
-      message.data,
-    );
+    final path = await message.apply();
 
     sender.send(path);
   }

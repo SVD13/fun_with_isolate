@@ -5,19 +5,21 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-Future<String> generatePDF(
-    String directoryPath,
-    // Map<String, Uint8List> images,
-    dynamic data) async {
-  final images = data as Map<String, Uint8List>;
+class PdfData {
+  PdfData(this.path, this.images);
 
+  final String path;
+  final Map<String, Uint8List> images;
+}
+
+Future<String> generatePDF(String path, PdfData data) async {
   log('generatePDF: start');
   final document = pw.Document(
     version: PdfVersion.pdf_1_5,
   );
 
   final image = pw.MemoryImage(
-    images['tomato']!,
+    data.images['tomato']!,
   );
 
   const tableHeaders = [
@@ -94,11 +96,11 @@ Future<String> generatePDF(
   final bytes = await document.save();
   log('generatePDF: bytes generated');
 
-  final filePath = '$directoryPath/heh.pdf';
+  final filePath = '$path/heh.pdf';
   final file = File(filePath);
 
   file.writeAsBytesSync(bytes);
-  log('generatePDF: wrote on disk');
+  log('generatePDF: wrote on disk $filePath');
 
   return filePath;
 }
