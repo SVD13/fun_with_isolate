@@ -1,18 +1,11 @@
 import 'dart:developer';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:isolate_test/pdf_generator.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-class PdfData {
-  PdfData(this.path, this.images);
-
-  final String path;
-  final Map<String, Uint8List> images;
-}
-
-Future<String> generatePDF(String path, PdfData data) async {
+Future<String> generatePDF(PdfGeneratorInput<String> data) async {
   log('generatePDF: start');
   final document = pw.Document(
     version: PdfVersion.pdf_1_5,
@@ -83,7 +76,7 @@ Future<String> generatePDF(String path, PdfData data) async {
             (col) => tableHeaders[col],
           ),
           data: List<List<String>>.generate(
-            1000,
+            2000,
             (row) => List<String>.generate(
               tableHeaders.length,
               (col) => '$row-$col',
@@ -96,7 +89,7 @@ Future<String> generatePDF(String path, PdfData data) async {
   final bytes = await document.save();
   log('generatePDF: bytes generated');
 
-  final filePath = '$path/heh.pdf';
+  final filePath = '${data.path}/heh.pdf';
   final file = File(filePath);
 
   file.writeAsBytesSync(bytes);

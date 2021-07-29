@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:isolate_test/pdf_generator.dart';
@@ -54,7 +55,7 @@ class RootState extends State<Root> with SingleTickerProviderStateMixin {
   @override
   void dispose() {
     _animation.dispose();
-    pdfGeneratorManager.dispose();
+    // pdfGeneratorManager.dispose();
     super.dispose();
   }
 
@@ -79,6 +80,14 @@ class RootState extends State<Root> with SingleTickerProviderStateMixin {
               child: Text(_label),
             ),
           ),
+          Center(
+            child: ElevatedButton(
+              onPressed: () {
+                pdfGeneratorManager.cancel();
+              },
+              child: Text('Stop'),
+            ),
+          ),
           Text(_result),
         ],
       ),
@@ -97,16 +106,6 @@ class RootState extends State<Root> with SingleTickerProviderStateMixin {
   }
 
   Future<void> _handleButtonPressed() async {
-    if (pdfGeneratorManager.isRunning) {
-      pdfGeneratorManager.cancel();
-
-      setState(() {
-        _status = 'Idle';
-      });
-
-      return;
-    }
-
     setState(() {
       _status = 'In Progress';
     });
@@ -116,13 +115,21 @@ class RootState extends State<Root> with SingleTickerProviderStateMixin {
 
     final path = (await getTemporaryDirectory()).path;
 
-    final filepath = await pdfGeneratorManager.run<PdfData>(
+    final filePath = await pdfGeneratorManager.run(
       documentGenerator: generatePDF,
-      directoryPath: 'path',
-      data: PdfData('qweqwe', {'tomato': logoBytes}),
+      data: PdfGeneratorInput(
+        path: path,
+        images: {'tomato': logoBytes},
+        data: 'asdasd',
+      ),
     );
 
-    _handleResult(filepath);
+    /* final filePath = await compute(
+      generatePDF,
+      PdfData('path', {'tomato': logoBytes}),
+    ); */
+
+    _handleResult(filePath);
   }
 
   String _getStatus(PdfGeneratorState state) {
